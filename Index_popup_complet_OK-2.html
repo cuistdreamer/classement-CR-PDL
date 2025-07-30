@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Classements régional Tir à l'arc</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.1/papaparse.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<style>
+    body {
+      font-family: "Roboto", sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 40px auto;
+      max-width: 1200px;
+      padding: 0 20px;
+    }
+    h1 {
+      color: #01579b;
+      font-size: 2rem;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #0288d1;
+      padding-bottom: 10px;
+    }
+    select, button {
+      margin: 0; /* géré par les wrappers */
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    select:focus, button:focus {
+      outline: none;
+      border-color: #0288d1;
+      box-shadow: 0 0 5px rgba(2, 136, 209, 0.5);
+    }
+    button {
+      background-color: #0288d1;
+      color: white;
+      cursor: pointer;
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: none;
+      margin-top: 10px;
+    }
+    button:hover { background-color: #0277bd; }
+
+    /* ====== Mise en ligne des menus ====== */
+    #filters, #para-section, #equipe-filtres {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 20px; /* row/column gap */
+      align-items: flex-start;
+      margin-top: 20px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      flex: 0 0 220px;   /* largeur fixe par bloc */
+      max-width: 220px;
+    }
+    .field label {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .field select { width: 100%; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 30px;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      font-size: 14px;
+    }
+    th {
+      background-color: #e1f5fe;
+      color: #01579b;
+    }
+    tbody tr:nth-child(odd) { background-color: #ffffff; }
+    tbody tr:nth-child(even) { background-color: #f0f8ff; }
+    .hidden { display: none !important; }
+    .reset-right {
+  background-color: #d32f2f;     /* rouge vif */
+  color: white;
+  margin-left: auto;
+  margin-top: 20px;
+  display: block;
+  padding: 10px 20px;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  max-width: 200px;
+}
+
+.reset-right:hover {
+  background-color: #b71c1c;     /* rouge foncé au survol */
+}
+.para-highlight {
+  border: 2px solid #01579b;  /* bleu foncé */
+  background-color: #e3f2fd; /* bleu très clair pour contraste */
+  padding: 15px;
+  border-radius: 6px;
+  margin-top: 20px;
+}
+@keyframes fadeInPara {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.para-highlight {
+  border: 2px solid #01579b;
+  background-color: #e3f2fd;
+  padding: 16px;
+  border-radius: 8px;
+  animation: fadeInPara 0.4s ease-out; /* Ajout de l'animation */
+}
+
+
+  </style>
+</head>
+<body>
+<a href="/admin-csv.html" style="position: absolute; top: 20px; right: 20px; text-decoration: none; font-size: 20px; color: #01579b;" target="_blank" title="Mode admin">
+    ⚙️
+  </a>
+<h1>Classements régional  Tir à l'arc</h1>
+<div class="field" style="margin-top: 10px; max-width: 300px;">
+<label for="searchInput">Recherche rapide (Nom ou Club) :</label>
+<input id="searchInput" placeholder="Tapez un nom ou un club..." style="width: 100%; padding: 6px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc;" type="text"/>
+</div>
+<div class="field" style="flex:0 0 auto; max-width:none;">
+<label for="classementType">Type de classement :</label>
+<select id="classementType">
+<option value="individuel">Individuel</option>
+<option value="equipe">Équipe salle</option>
+</select>
+</div>
+<!-- Filtres INDIVIDUEL -->
+<div id="filters">
+<div class="field">
+<label for="discipline">Discipline :</label>
+<select id="discipline"></select>
+</div>
+<div class="field">
+<label for="categorie">Catégorie :</label>
+<select id="categorie"></select>
+</div>
+<div class="field">
+<label for="arme">Arme :</label>
+<select id="arme"></select>
+</div>
+<div class="field">
+<label for="sexe">Sexe :</label>
+<select id="sexe"></select>
+</div>
+<div class="field">
+<label for="departement">Département :</label>
+<select id="departement"></select>
+</div>
+<div class="field hidden" id="distance-container">
+<label for="distance">Distance :</label>
+<select id="distance"></select>
+</div>
+<div class="field hidden" id="blason-container">
+<label for="blason">Blason :</label>
+<select id="blason"></select>
+</div>
+</div>
+<!-- Filtres PARA -->
+<div class="hidden" id="para-section">
+<h3 style="flex: 0 0 100%; margin: 0 0 10px;">Para tir à l'arc</h3>
+<div class="field">
+<label for="cat_tir">Catégorie tir :</label>
+<select id="cat_tir"></select>
+</div>
+<div class="field">
+<label for="cat_class">Catégorie classement :</label>
+<select id="cat_class"></select>
+</div>
+</div>
+<!-- Filtres EQUIPES -->
+<div class="hidden" id="equipe-filtres">
+<div class="field">
+<label for="equipe-categorie">Catégorie :</label>
+<select id="equipe-categorie"></select>
+</div>
+<div class="field">
+<label for="equipe-departement">Département :</label>
+<select id="equipe-departement"></select>
+</div>
+</div>
+<button class="reset-right" id="resetBtn">Réinitialiser les filtres</button>
+
+<div id="activeFilters" style="margin-top: 20px; font-style: italic; color: #555;"></div>
+<table id="resultsTable">
+<thead></thead>
+<tbody></tbody>
+</table>
+<script>
+    let individualData = [];
+    let teamData = [];
+
+    const disciplines = ["3D", "Campagne", "Nature", "Para 18m", "Para ext", "TAE", "Tir en Salle"];
+    const armesAll = ["AC", "AD", "BB", "CL", "CO", "SA", "TL"];
+    const sexes = ["F", "H"];
+    const departements = ["44", "49", "53", "72", "85"];
+    const teamCats = ["Arc Classique Femme 2025", "Arc Classique Homme 2025", "Arc à Poulies Femme 2025", "Arc à Poulies Homme 2025"];
+    const teamDeps = ["44", "49", "53", "72", "85"];
+
+    function populateSelect(id, values) {
+      const select = $(id);
+      const unique = [...new Set(values.filter(v => v))].sort();
+      const current = select.val();
+      select.empty().append('<option value="">--Tous--</option>');
+      unique.forEach(v => select.append(`<option value="${v}">${v}</option>`));
+      if (unique.includes(current)) select.val(current);
+    }
+
+    function updateFilters() {
+      const d = $('#discipline').val();
+      const c = $('#categorie').val();
+
+      // Armes selon discipline
+      const disciplineArmes = {
+        "Tir en Salle": ["CL", "CO", "BB"],
+        "TAE": ["CL", "CO", "BB"],
+        "3D": ["AC", "AD", "CL", "CO", "TL"],
+        "Campagne": ["AD", "BB", "CL", "CO"],
+        "Nature": ["AC", "AD", "CL", "CO", "TL"],
+        "Para 18m": ["CL", "CO", "BB", "SA"],
+        "Para ext": ["CL", "CO", "BB", "SA"]
+      };
+
+      const filtered = individualData.filter(row => (!d || row.DISCIPLINE === d));
+
+      // Catégories dynamiques
+      const prevCat = $('#categorie').val();
+      populateSelect('#categorie', filtered.map(r => r.CAT));
+      if (prevCat) $('#categorie').val(prevCat);
+
+      // Armes dynamiques
+      if (disciplineArmes[d]) {
+        const prevArme = $('#arme').val();
+        populateSelect('#arme', disciplineArmes[d]);
+        if (disciplineArmes[d].includes(prevArme)) $('#arme').val(prevArme);
+      } else {
+        populateSelect('#arme', armesAll);
+      }
+
+      // Distance / Blason (TAE + Para ext)
+      if (d === 'TAE' || d === 'Para ext') {
+        const a = $('#arme').val();
+        let distFiltered = filtered.filter(row => (!c || row.CAT === c));
+        if (a) distFiltered = distFiltered.filter(row => row.ARME === a);
+        const distances = distFiltered.map(r => r.DISTANCE);
+        const blasons   = distFiltered.map(r => r.BLASON);
+        $('#distance-container, #blason-container').removeClass('hidden');
+        populateSelect('#distance', distances);
+        populateSelect('#blason', blasons);
+      } else {
+        $('#distance-container, #blason-container').addClass('hidden');
+      }
+
+      // Para section
+      if (d === 'Para 18m' || d === 'Para ext') {
+        $('#para-section').removeClass('hidden').addClass('para-highlight');
+        const filteredTir   = filtered.filter(r => r.CAT_TIR).map(r => r.CAT_TIR);
+        populateSelect('#cat_tir', filteredTir);
+        const tir = $('#cat_tir').val();
+        const filteredClass = filtered.filter(r => (!tir || r.CAT_TIR === tir) && r.CAT_CLASS).map(r => r.CAT_CLASS);
+        populateSelect('#cat_class', filteredClass);
+      } else {
+        $('#para-section').addClass('hidden');
+        $('para-section').removeClass('para-highlight');
+      }
+    }
+
+    function renderTable(data, columns) {
+      const thead = $('#resultsTable thead').empty();
+      const tbody = $('#resultsTable tbody').empty();
+      const headerRow = $('<tr>');
+      columns.forEach(col => headerRow.append(`<th>${col}</th>`));
+      thead.append(headerRow);
+      data.forEach(row => {
+        const tr = $('<tr>');
+        columns.forEach(col => tr.append(`<td>${row[col] || ''}</td>`));
+        tbody.append(tr);
+      });
+    }
+
+    function filterAndDisplay() {
+      const filtersSummary = [];
+      const search = $('#searchInput').val().toLowerCase();
+      const type = $('#classementType').val();
+      if (type === 'individuel') {
+        let data = individualData;
+        const d = $('#discipline').val();
+        const c = $('#categorie').val();
+        const a = $('#arme').val();
+        const s = $('#sexe').val();
+        const dep = $('#departement').val();
+        const dist = $('#distance').val();
+        const bl = $('#blason').val();
+        const cat_tir = $('#cat_tir').val();
+        const cat_class = $('#cat_class').val();
+
+        if (d) filtersSummary.push(`Discipline = ${d}`);
+        if (c) filtersSummary.push(`Catégorie = ${c}`);
+        if (a) filtersSummary.push(`Arme = ${a}`);
+        if (s) filtersSummary.push(`Sexe = ${s}`);
+        if (dep) filtersSummary.push(`Département = ${dep}`);
+        if (dist) filtersSummary.push(`Distance = ${dist}`);
+        if (bl) filtersSummary.push(`Blason = ${bl}`);
+        if (cat_tir) filtersSummary.push(`Cat. tir = ${cat_tir}`);
+        if (cat_class) filtersSummary.push(`Cat. class. = ${cat_class}`);
+        if (search) filtersSummary.push(`Recherche = ${search}`);
+
+        $("#activeFilters").html(filtersSummary.length ? "<strong>Filtres actifs :</strong> " + filtersSummary.join(" | ") : "");
+
+        data = data.filter(row => (!d || row.DISCIPLINE === d) &&
+                                  (!c || row.CAT === c) &&
+                                  (!a || row.ARME === a) &&
+                                  (!s || row.SEXE === s) &&
+                                  (!dep || row.DEP === dep) &&
+                                  (!dist || row.DISTANCE === dist) &&
+                                  (!bl || row.BLASON === bl) &&
+                                  (!cat_tir || row.CAT_TIR === cat_tir) &&
+                                  (!cat_class || row.CAT_CLASS === cat_class) &&
+                                  (!search || (row["Nom Prénom"] && row["Nom Prénom"].toLowerCase().includes(search)) || (row["CLUB"] && row["CLUB"].toLowerCase().includes(search))));
+
+        updateFilters();
+
+        let cols = ["DISCIPLINE", "RANG", "N° LICENCE", "Nom Prénom", "CAT", "SEXE", "ARME", "DEP", "CLUB", "SCORE1", "SCORE2", "SCORE3", "MOY_SCORE"];
+        if (d === 'TAE') cols.push("DISTANCE", "BLASON");
+        if (d === 'Para 18m') cols.push("CAT_TIR", "CAT_CLASS");
+        if (d === 'Para ext') cols.push("DISTANCE", "BLASON", "CAT_TIR", "CAT_CLASS");
+
+        renderTable(data, cols);
+      } else {
+        let data = teamData;
+        const c = $('#equipe-categorie').val();
+        const dep = $('#equipe-departement').val();
+        if (c) filtersSummary.push(`Catégorie = ${c}`);
+        if (dep) filtersSummary.push(`Département = ${dep}`);
+        if (search) filtersSummary.push(`Recherche = ${search}`);
+
+        $("#activeFilters").html(filtersSummary.length ? "<strong>Filtres actifs :</strong> " + filtersSummary.join(" | ") : "");
+
+        data = data.filter(row => (!c || row["Catégorie"] === c) && (!dep || row.Dep === dep) && (!search || (row["Nom Prénom"] && row["Nom Prénom"].toLowerCase().includes(search)) || (row["Club"] && row["Club"].toLowerCase().includes(search))));
+        renderTable(data, ["DISCIPLINE", "Rang", "Sexe", "Arme", "Catégorie", "Dep", "Club", "Score 1", "Score 2", "Score 3", "Moyenne"]);
+      }
+    }
+
+    $(document).ready(function() {
+      populateSelect('#discipline', disciplines);
+      populateSelect('#arme', armesAll);
+      populateSelect('#sexe', sexes);
+      populateSelect('#departement', departements);
+      
+      
+
+      $("select").on("change", function() { filterAndDisplay(); });
+      $("#searchInput").on("input", function() { filterAndDisplay(); });
+
+      $('#toggleUpload').on('click', function() {
+        $('#uploadSection').toggleClass('hidden');
+      });
+
+      $('#uploadIndiv').on('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          Papa.parse(file, {
+            header: true,
+            complete: function(results) {
+              individualData = results.data;
+              filterAndDisplay();
+            }
+          });
+        }
+      });
+
+      $('#uploadEquipe').on('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+          Papa.parse(file, {
+            header: true,
+            complete: function(results) {
+              teamData = results.data;
+              const equipeCats = [...new Set(teamData.map(r => r["Catégorie"]))].filter(Boolean);
+              const equipeDeps = [...new Set(teamData.map(r => r["Dep"]))].filter(Boolean);
+              populateSelect('#equipe-categorie', equipeCats);
+              populateSelect('#equipe-departement', equipeDeps);
+              filterAndDisplay();
+            }
+          });
+        }
+      });
+
+      $('#classementType').on('change', function() {
+        const type = $(this).val();
+        if (type === 'individuel') {
+          $('#filters, #para-section').removeClass('hidden');
+          $('#equipe-filtres').addClass('hidden');
+        } else {
+          $('#filters, #para-section').addClass('hidden');
+          $('#equipe-filtres').removeClass('hidden');
+        }
+        filterAndDisplay();
+      });
+
+      $('#resetBtn').on('click', function() {
+        location.reload();
+      });
+
+      Papa.parse("Clt.csv", {
+        download: true,
+        header: true,
+        complete: function(results) {
+          individualData = results.data;
+          filterAndDisplay();
+        }
+      });
+
+      Papa.parse("equipe salle.csv", {
+        download: true,
+        header: true,
+        complete: function(results) {
+          teamData = results.data;
+          const equipeCats = [...new Set(teamData.map(r => r["Catégorie"]))].filter(Boolean);
+          const equipeDeps = [...new Set(teamData.map(r => r["Dep"]))].filter(Boolean);
+          populateSelect('#equipe-categorie', equipeCats);
+          populateSelect('#equipe-departement', equipeDeps);
+          
+          
+          filterAndDisplay();
+        }
+      });
+    });
+  </script>
+
+<div id="modalOverlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:999;">
+<div id="modalContent" style="background:white; padding:20px; border-radius:8px; max-width:800px; width:90%; max-height:90vh; overflow-y:auto;">
+<span id="closeModal" style="float:right; cursor:pointer; font-weight:bold; color:#d32f2f;">×</span>
+<h2>Détails des résultats</h2>
+<div id="modalResults"></div>
+</div>
+</div>
+
+<script>
+let resultatsIndiv = [];
+
+function showModal(htmlContent) {
+  document.getElementById("modalResults").innerHTML = htmlContent;
+  document.getElementById("modalOverlay").style.display = "flex";
+}
+
+function hideModal() {
+  document.getElementById("modalOverlay").style.display = "none";
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("modalOverlay").addEventListener("click", function(e) {
+    if (e.target.id === "modalOverlay" || e.target.id === "closeModal") {
+      hideModal();
+    }
+  });
+
+  Papa.parse("resultat indiv complet.csv", {
+    download: true,
+    header: true,
+    delimiter: ";",
+    complete: function(results) {
+      resultatsIndiv = results.data;
+    }
+  });
+
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll("#resultsTable tbody tr").forEach(row => {
+      const licence = row.children[2]?.innerText.trim();
+      const discipline = row.children[0]?.innerText.trim();
+     const cell = row.children[3]; // cellule Nom Prénom
+const nom = cell.innerText.trim(); // récupération du nom cliqué
+
+      if (cell && licence) {
+        cell.style.cursor = "pointer";
+        cell.style.textDecoration = "underline";
+        cell.onclick = () => {
+          const results = resultatsIndiv.filter(r => r["NO_LICENCE"] === licence && r["DISCIPLINE"] === discipline);
+          if (results.length === 0) {
+            showModal("<p>Aucun résultat trouvé pour ce tireur dans cette discipline.</p>");
+          } else {
+            let html = `<h3 style="margin-bottom:10px;">Résultats de <span style="color:#0077cc">${nom}</span></h3>`;
+html += '<table style="width:100%; border-collapse:collapse; font-size:14px;"><tr><th>Discipline</th><th>date</th><th>Lieu</th><th>Score</th><th>Place</th></tr>';
+
+            results.forEach(r => {
+              html += `<tr><td>${r.DISCIPLINE}</td><td>${r.D_DEBUT_CONCOURS}</td><td>${r.NOM_STRUCTURE_ORGANISATRICE}</td><td>${r.SCORE}</td><td>${r.PLACE_QUALIF}</td></tr>`;
+            });
+            html += "</table>";
+            showModal(html);
+          }
+        };
+      }
+    });
+  });
+
+  const target = document.querySelector("#resultsTable tbody");
+  if (target) observer.observe(target, { childList: true, subtree: true });
+});
+</script>
+</body>
+</html>
